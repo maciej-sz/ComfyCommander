@@ -24,6 +24,7 @@ body {
     flex-direction: column;
     background-color: #001f3f;
     outline: none;
+    position: relative; /* Context for absolute positioning if needed */
 }
 
 .active-panel {
@@ -102,6 +103,17 @@ body {
 .is-directory {
     font-weight: bold;
     /* Directory specific color if needed, but let's keep simple */
+}
+
+/* Search Bar */
+.search-bar {
+    background-color: #FFDC00; /* Yellow background like classic commanders */
+    color: black;
+    padding: 2px 5px;
+    font-weight: bold;
+    font-family: monospace;
+    border-top: 1px solid black;
+    min-height: 20px; /* Ensure space */
 }
 
 #footer {

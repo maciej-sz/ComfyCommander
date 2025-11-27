@@ -6,7 +6,10 @@ const state = {
         selectedIndices: new Set(), // The "tagged" files
         element: document.getElementById('left-panel'),
         listElement: document.getElementById('left-list'),
-        pathElement: document.getElementById('left-path')
+        pathElement: document.getElementById('left-path'),
+        searchElement: document.getElementById('left-search'),
+        searchString: '',
+        searchTimer: null
     },
     right: {
         path: '',
@@ -15,7 +18,10 @@ const state = {
         selectedIndices: new Set(),
         element: document.getElementById('right-panel'),
         listElement: document.getElementById('right-list'),
-        pathElement: document.getElementById('right-path')
+        pathElement: document.getElementById('right-path'),
+        searchElement: document.getElementById('right-search'),
+        searchString: '',
+        searchTimer: null
     },
     active: 'left'
 };
@@ -71,9 +77,32 @@ async function loadDir(side, dirPath) {
         state[side].focusedIndex = newFocusedIndex;
         state[side].selectedIndices = new Set(); // Clear selections on dir change
         state[side].pathElement.textContent = dirPath;
+        
+        // Reset search on dir change
+        clearSearch(side);
+        
         renderList(side);
     } else {
         alert(`Error loading directory: ${result.error}`);
+    }
+}
+
+function clearSearch(side) {
+    const panel = state[side];
+    panel.searchString = '';
+    if (panel.searchTimer) clearTimeout(panel.searchTimer);
+    panel.searchTimer = null;
+    updateSearchUI(side);
+}
+
+function updateSearchUI(side) {
+    const panel = state[side];
+    if (panel.searchString.length > 0) {
+        panel.searchElement.textContent = panel.searchString;
+        panel.searchElement.classList.remove('hidden');
+    } else {
+        panel.searchElement.textContent = '';
+        panel.searchElement.classList.add('hidden');
     }
 }
 
@@ -150,14 +179,51 @@ function updateActivePanelUI() {
 const PAGE_SIZE = 20;
 
 document.addEventListener('keydown', async (e) => {
+    // If modal is open, ignore (handled by capture in modal, but just in case)
+    if (!document.getElementById('modal-overlay').classList.contains('hidden')) return;
+
     const activeSide = state.active;
     const panel = state[activeSide];
     
+    // Helper to process search input
+    const processSearchInput = (char) => {
+        panel.searchString += char;
+        
+        // Reset timer
+        if (panel.searchTimer) clearTimeout(panel.searchTimer);
+        panel.searchTimer = setTimeout(() => {
+             // Optional: Clear search after timeout?
+             // Classic Commander: Usually keeps it for a bit or until move.
+             // Let's clear it after 3 seconds of inactivity to keep UI clean.
+             clearSearch(activeSide);
+        }, 3000);
+        
+        updateSearchUI(activeSide);
+        
+        // Find match
+        // Prefix match, case insensitive
+        const search = panel.searchString.toLowerCase();
+        // Skip '..' (index 0 usually)
+        const matchIndex = panel.files.findIndex((f, i) => {
+            if (f.name === '..') return false;
+            // Handle '[name]' display for dirs? No, match against real name.
+            return f.name.toLowerCase().startsWith(search);
+        });
+        
+        if (matchIndex !== -1) {
+            panel.focusedIndex = matchIndex;
+            renderList(activeSide);
+            ensureVisible(activeSide);
+        }
+    };
+
     if (e.key === 'Tab') {
         e.preventDefault();
+        clearSearch(activeSide); // Clear search when switching
         setActivePanel(activeSide === 'left' ? 'right' : 'left');
     } else if (e.key === 'ArrowDown') {
         e.preventDefault();
+        clearSearch(activeSide); // Movement clears search usually
         if (panel.focusedIndex < panel.files.length - 1) {
             panel.focusedIndex++;
             renderList(activeSide);
@@ -165,6 +231,7 @@ document.addEventListener('keydown', async (e) => {
         }
     } else if (e.key === 'ArrowUp') {
         e.preventDefault();
+        clearSearch(activeSide);
         if (panel.focusedIndex > 0) {
             panel.focusedIndex--;
             renderList(activeSide);
@@ -186,26 +253,31 @@ document.addEventListener('keydown', async (e) => {
         ensureVisible(activeSide);
     } else if (e.key === 'Home') {
         e.preventDefault();
+        clearSearch(activeSide);
         panel.focusedIndex = 0;
         renderList(activeSide);
         ensureVisible(activeSide);
     } else if (e.key === 'End') {
         e.preventDefault();
+        clearSearch(activeSide);
         panel.focusedIndex = Math.max(0, panel.files.length - 1);
         renderList(activeSide);
         ensureVisible(activeSide);
     } else if (e.key === 'PageUp') {
         e.preventDefault();
+        clearSearch(activeSide);
         panel.focusedIndex = Math.max(0, panel.focusedIndex - PAGE_SIZE);
         renderList(activeSide);
         ensureVisible(activeSide);
     } else if (e.key === 'PageDown') {
         e.preventDefault();
+        clearSearch(activeSide);
         panel.focusedIndex = Math.min(panel.files.length - 1, panel.focusedIndex + PAGE_SIZE);
         renderList(activeSide);
         ensureVisible(activeSide);
     } else if (e.key === 'Enter') {
         e.preventDefault();
+        clearSearch(activeSide);
         const file = panel.files[panel.focusedIndex];
         if (file && file.isDirectory) {
             await loadDir(activeSide, file.path);
@@ -215,10 +287,41 @@ document.addEventListener('keydown', async (e) => {
         performCopy();
     } else if (e.key === 'Backspace') {
         e.preventDefault();
-        const currentPath = panel.path;
-        const parentPath = await window.api.getParentDir(currentPath);
-        if (currentPath !== parentPath) { // Prevent going up from root
-            await loadDir(activeSide, parentPath);
+        if (panel.searchString.length > 0) {
+            // Edit search string
+            panel.searchString = panel.searchString.slice(0, -1);
+            if (panel.searchTimer) clearTimeout(panel.searchTimer);
+            panel.searchTimer = setTimeout(() => clearSearch(activeSide), 3000);
+            updateSearchUI(activeSide);
+            // Re-search? Maybe stay on current or jump back?
+            // Usually we stay put or jump to new prefix.
+            // Let's just update UI.
+        } else {
+            // Go up
+            const currentPath = panel.path;
+            const parentPath = await window.api.getParentDir(currentPath);
+            if (currentPath !== parentPath) { // Prevent going up from root
+                await loadDir(activeSide, parentPath);
+            }
+        }
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        if (panel.searchString.length > 0) {
+            clearSearch(activeSide);
+        }
+    } else {
+        // Search Typing
+        // Accept single char, no modifiers (except Shift)
+        if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            // Check if printable (simple regex)
+            if (/^[\w\s.\-]$/.test(e.key) || /[!@#$%^&()_+=[\]{};',`]/.test(e.key)) {
+                // e.preventDefault(); // Don't prevent default? prevent scrolling maybe
+                // Actually if we type 'a', browsers might not do much unless focused on input.
+                // But space scrolls.
+                 if (e.key === ' ') e.preventDefault();
+                 
+                 processSearchInput(e.key);
+            }
         }
     }
 });
