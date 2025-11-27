@@ -544,10 +544,25 @@ function showConfirmModal(message) {
         const handleKeydown = (e) => {
              // Block all interactions with the app while modal is open
              e.stopPropagation();
+             
+             if (e.key === 'Tab') {
+                 e.preventDefault();
+                 if (document.activeElement === btnOk) {
+                     btnCancel.focus();
+                 } else {
+                     btnOk.focus();
+                 }
+                 return;
+             }
+
              e.preventDefault();
              
              if (e.key === 'Enter') {
-                 handleOk();
+                 if (document.activeElement === btnCancel) {
+                     handleCancel();
+                 } else {
+                     handleOk();
+                 }
              } else if (e.key === 'Escape') {
                  handleCancel();
              }
