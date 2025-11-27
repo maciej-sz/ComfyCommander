@@ -195,3 +195,37 @@ async function performCopy() {
 
 // Button listener
 document.getElementById('copy-btn').addEventListener('click', performCopy);
+
+// Resizing Logic
+const separator = document.getElementById('separator');
+const leftPanel = document.getElementById('left-panel');
+const container = document.getElementById('container');
+
+let isResizing = false;
+
+separator.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const newLeftWidth = e.clientX - containerRect.left;
+    
+    // Limit resizing to keep panels usable (e.g., min 100px)
+    if (newLeftWidth < 100 || newLeftWidth > containerRect.width - 100) return;
+
+    leftPanel.style.width = `${newLeftWidth}px`;
+    leftPanel.style.flex = '0 0 auto'; 
+});
+
+document.addEventListener('mouseup', () => {
+    if (isResizing) {
+        isResizing = false;
+        document.body.style.cursor = 'default';
+        document.body.style.userSelect = '';
+    }
+});

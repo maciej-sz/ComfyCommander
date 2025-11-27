@@ -17,7 +17,8 @@ body {
 }
 
 .panel {
-    flex: 1;
+    flex: 1; /* Starts as 1, JS will override for resizing */
+    min-width: 100px; /* Prevent collapsing */
     border: 1px solid #0074D9;
     display: flex;
     flex-direction: column;
@@ -28,6 +29,28 @@ body {
 .active-panel {
     background-color: #002855; /* Slightly lighter blue for active */
     border-color: #7FDBFF;
+}
+
+#separator {
+    width: 6px;
+    cursor: col-resize;
+    background-color: #001f3f;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex: 0 0 auto; /* Prevent separator from resizing */
+}
+
+#separator::after {
+    content: "";
+    display: block;
+    width: 1px;
+    height: 20px;
+    background-color: #0074D9;
+}
+
+#separator:hover {
+    background-color: #003366;
 }
 
 .path-bar {
