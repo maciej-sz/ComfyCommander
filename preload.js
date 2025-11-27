@@ -5,5 +5,6 @@ contextBridge.exposeInMainWorld('api', {
     listDir: (path) => ipcRenderer.invoke('list-dir', path),
     copyFile: (source, dest) => ipcRenderer.invoke('copy-file', source, dest),
     pathJoin: (...args) => ipcRenderer.invoke('path-join', ...args),
-    getParentDir: (path) => ipcRenderer.invoke('get-parent-dir', path)
+    getParentDir: (path) => ipcRenderer.invoke('get-parent-dir', path),
+    getBasename: (path) => ipcRenderer.invoke('get-basename', path)
 });

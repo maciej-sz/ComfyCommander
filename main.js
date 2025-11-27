@@ -81,3 +81,7 @@ ipcMain.handle('path-join', (event, ...args) => {
 ipcMain.handle('get-parent-dir', (event, dirPath) => {
     return path.dirname(dirPath);
 });
+
+ipcMain.handle('get-basename', (event, filePath) => {
+    return path.basename(filePath);
+});

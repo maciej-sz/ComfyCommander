@@ -37,13 +37,38 @@ const state = {
 async function loadDir(side, dirPath) {
     const result = await window.api.listDir(dirPath);
     if (result.success) {
+        const oldPath = state[side].path;
         state[side].path = dirPath;
         const files = result.files;
+        
         // Add parent directory entry manually for navigation
         files.unshift({ name: '..', isDirectory: true, path: await window.api.getParentDir(dirPath) });
         
         state[side].files = files;
-        state[side].focusedIndex = 0;
+        
+        // Navigation Logic:
+        // If we are going up (dirPath is parent of oldPath), focus on the directory we just exited.
+        let newFocusedIndex = 0;
+        if (oldPath) {
+            const parentOfOld = await window.api.getParentDir(oldPath);
+            // Check if new dir is parent of old dir
+            // Note: Simple string comparison might fail on trailing slashes or case sensitivity (on Windows), 
+            // but assuming canonical paths from backend for now.
+            if (parentOfOld === dirPath) {
+                const exitedDirName = await window.api.getBasename(oldPath);
+                // Find index of this dir in the new list
+                // Note: files list has '..' at index 0 usually.
+                // The files from backend (vfs) are sorted.
+                // We need to match name.
+                // Note: renderer adds '[ ]' around directories for display but raw file object name is clean.
+                const index = files.findIndex(f => f.name === exitedDirName);
+                if (index !== -1) {
+                    newFocusedIndex = index;
+                }
+            }
+        }
+
+        state[side].focusedIndex = newFocusedIndex;
         state[side].selectedIndices = new Set(); // Clear selections on dir change
         state[side].pathElement.textContent = dirPath;
         renderList(side);
@@ -87,22 +112,7 @@ function renderList(side) {
                     panel.selectedIndices.add(index);
                 }
             } else {
-                // Standard behavior: clear other selections?
-                // For commander style, often mouse click just moves cursor. 
-                // But in web, click usually selects. 
-                // Let's make simple click just move cursor for now to be consistent with 'Insert' key workflow, 
-                // OR, if we want to be modern: clear selection and select this one.
-                // Let's go with: Click moves cursor. Use Ctrl/Insert to select.
-                // Actually, user asked for "Select multiple files". 
-                // If I click 'A', then Ctrl+Click 'B', I want 'A' and 'B'.
-                // If I click 'C' (no ctrl), I usually expect 'A' and 'B' to be deselected.
-                // Let's implement standard OS behavior:
-                // Click -> Clear selection, Set cursor, (Optionally add cursor to selection? No, usually cursor is implicit selection if selection is empty)
-                
-                // DECISION: 
-                // 1. Click: Set Focus. CLEAR Selection.
-                // 2. Ctrl+Click: Set Focus. Toggle Selection for this index. 
-                
+                // Standard behavior: clear other selections
                 if (!e.ctrlKey) {
                     panel.selectedIndices.clear();
                 }
@@ -120,6 +130,9 @@ function renderList(side) {
         
         panel.listElement.appendChild(div);
     });
+    
+    // Ensure focused item is visible initially
+    ensureVisible(side);
 }
 
 function setActivePanel(side) {
