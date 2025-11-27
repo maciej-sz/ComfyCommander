@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const fs = require('fs');
-const os = require('os');
+const NodeFileSystem = require('./lib/vfs/NodeFileSystem');
+
+const vfs = new NodeFileSystem();
 
 function createWindow() {
     const win = new BrowserWindow({
@@ -35,28 +36,14 @@ app.on('window-all-closed', () => {
 
 // IPC Handlers
 
-ipcMain.handle('get-home-dir', () => {
-    return os.homedir();
+ipcMain.handle('get-home-dir', async () => {
+    return await vfs.getHomeDir();
 });
 
 ipcMain.handle('list-dir', async (event, dirPath) => {
     try {
-        const files = await fs.promises.readdir(dirPath, { withFileTypes: true });
-        const result = files.map(file => {
-            return {
-                name: file.name,
-                isDirectory: file.isDirectory(),
-                path: path.join(dirPath, file.name)
-            };
-        });
-        // Sort: Directories first, then files
-        result.sort((a, b) => {
-            if (a.isDirectory === b.isDirectory) {
-                return a.name.localeCompare(b.name);
-            }
-            return a.isDirectory ? -1 : 1;
-        });
-        return { success: true, files: result };
+        const files = await vfs.listDir(dirPath);
+        return { success: true, files: files };
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -64,14 +51,7 @@ ipcMain.handle('list-dir', async (event, dirPath) => {
 
 ipcMain.handle('copy-file', async (event, sourcePath, destDir) => {
     try {
-        const fileName = path.basename(sourcePath);
-        const destPath = path.join(destDir, fileName);
-        
-        // Prevent overwriting for this basic clone or simple error
-        // In a real app, we might ask for confirmation.
-        // Here we'll just use copyFile. 
-        // COPYFILE_EXCL causes operation to fail if dest exists.
-        await fs.promises.copyFile(sourcePath, destPath, fs.constants.COPYFILE_EXCL);
+        await vfs.copyFile(sourcePath, destDir);
         return { success: true };
     } catch (error) {
         return { success: false, error: error.message };
