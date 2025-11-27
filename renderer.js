@@ -256,6 +256,13 @@ async function performCopy() {
     filesToCopy = filesToCopy.filter(f => f && f.name !== '..');
     
     if (filesToCopy.length === 0) return;
+
+    // Confirmation Dialog
+    const confirmMessage = `Are you sure you want to copy ${filesToCopy.length} file(s) to "${destPanel.path}"?`;
+    const confirmed = await showConfirmModal(confirmMessage);
+    if (!confirmed) {
+        return; // Abort if user cancels
+    }
     
     const status = document.getElementById('status-bar');
     status.textContent = `Copying ${filesToCopy.length} files...`;
@@ -319,3 +326,57 @@ document.addEventListener('mouseup', () => {
         document.body.style.userSelect = '';
     }
 });
+
+// Modal Helper
+function showConfirmModal(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modal-overlay');
+        const msg = document.getElementById('modal-message');
+        const btnOk = document.getElementById('modal-confirm');
+        const btnCancel = document.getElementById('modal-cancel');
+
+        msg.textContent = message;
+        modal.classList.remove('hidden');
+
+        const cleanup = () => {
+            modal.classList.add('hidden');
+            btnOk.removeEventListener('click', handleOk);
+            btnCancel.removeEventListener('click', handleCancel);
+            window.removeEventListener('keydown', handleKeydown, true);
+            // Return focus to active panel
+            if (state[state.active] && state[state.active].element) {
+                state[state.active].element.focus();
+            }
+        };
+
+        const handleOk = () => {
+            cleanup();
+            resolve(true);
+        };
+
+        const handleCancel = () => {
+            cleanup();
+            resolve(false);
+        };
+        
+        const handleKeydown = (e) => {
+             // Block all interactions with the app while modal is open
+             e.stopPropagation();
+             e.preventDefault();
+             
+             if (e.key === 'Enter') {
+                 handleOk();
+             } else if (e.key === 'Escape') {
+                 handleCancel();
+             }
+        };
+
+        btnOk.addEventListener('click', handleOk);
+        btnCancel.addEventListener('click', handleCancel);
+        
+        // Capture phase to intercept global keys
+        window.addEventListener('keydown', handleKeydown, true);
+        
+        btnOk.focus();
+    });
+}

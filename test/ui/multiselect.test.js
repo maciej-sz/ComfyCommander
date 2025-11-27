@@ -93,8 +93,19 @@ test.describe('Multi-File Selection', () => {
     await folder1Item.click({ modifiers: ['Control'] });
     await expect(folder1Item).toHaveClass(/selected/);
 
-    // 3. Trigger Copy
+    // 3. Trigger Copy (Handle Confirmation Dialog)
     await window.keyboard.press('F5');
+    
+    // Expect Custom Modal
+    const modal = window.locator('#modal-overlay');
+    await expect(modal).toBeVisible();
+    await expect(window.locator('#modal-message')).toContainText('Are you sure you want to copy');
+    
+    // Confirm
+    await window.locator('#modal-confirm').click();
+    
+    // Wait for modal to disappear
+    await expect(modal).toBeHidden();
     
     // 4. Verify items appear in Right List
     // Wait a bit for async op and refresh
