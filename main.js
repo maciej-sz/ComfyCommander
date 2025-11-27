@@ -1,8 +1,23 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const NodeFileSystem = require('./lib/vfs/NodeFileSystem');
+const MemoryFileSystem = require('./lib/vfs/MemoryFileSystem');
 
-const vfs = new NodeFileSystem();
+let vfs;
+
+// Initialize VFS based on environment variable
+if (process.env.USE_MEMORY_FS === 'true') {
+    const homeDir = process.platform === 'win32' ? 'C:\\Users\\Test' : '/home/test';
+    const initialFiles = {
+        [path.join(homeDir, 'file1.txt')]: 'file',
+        [path.join(homeDir, 'folder1')]: 'dir',
+        [path.join(homeDir, 'folder1', 'subfile.txt')]: 'file'
+    };
+    vfs = new MemoryFileSystem(initialFiles);
+    console.log('Using MemoryFileSystem');
+} else {
+    vfs = new NodeFileSystem();
+}
 
 function createWindow() {
     const win = new BrowserWindow({

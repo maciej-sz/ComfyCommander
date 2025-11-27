@@ -2,8 +2,8 @@ const { expect } = require('chai');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const NodeFileSystem = require('../lib/vfs/NodeFileSystem');
-const MemoryFileSystem = require('../lib/vfs/MemoryFileSystem');
+const NodeFileSystem = require('../../lib/vfs/NodeFileSystem');
+const MemoryFileSystem = require('../../lib/vfs/MemoryFileSystem');
 
 // Helper to create a temp dir for NodeFS
 const createTempDir = async () => {
