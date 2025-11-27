@@ -297,6 +297,9 @@ document.addEventListener('keydown', async (e) => {
     } else if (e.key === 'F5') {
         e.preventDefault();
         performCopy();
+    } else if (e.key === 'F7') {
+        e.preventDefault();
+        performMkdir();
     } else if (e.key === 'F8' || e.key === 'Delete') {
         e.preventDefault();
         performDelete(e.shiftKey);
@@ -308,9 +311,6 @@ document.addEventListener('keydown', async (e) => {
             if (panel.searchTimer) clearTimeout(panel.searchTimer);
             panel.searchTimer = setTimeout(() => clearSearch(activeSide), 3000);
             updateSearchUI(activeSide);
-            // Re-search? Maybe stay on current or jump back?
-            // Usually we stay put or jump to new prefix.
-            // Let's just update UI.
         } else {
             // Go up
             const currentPath = panel.path;
@@ -329,12 +329,8 @@ document.addEventListener('keydown', async (e) => {
         // Accept single char, no modifiers (except Shift)
         if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
             // Check if printable (simple regex)
-            if (/^[\w\s.\-]$/.test(e.key) || /[!@#$%^&()_+=[\]{};',`]/.test(e.key)) {
-                // e.preventDefault(); // Don't prevent default? prevent scrolling maybe
-                // Actually if we type 'a', browsers might not do much unless focused on input.
-                // But space scrolls.
+            if (/^[\w\s.\-]/.test(e.key) || /[!@#$%^&()_+=[\\]{};',`]/.test(e.key)) {
                  if (e.key === ' ') e.preventDefault();
-                 
                  processSearchInput(e.key);
             }
         }
@@ -377,7 +373,7 @@ async function performCopy() {
 
     // Confirmation Dialog
     const confirmMessage = `Are you sure you want to copy ${filesToCopy.length} file(s) to "${destPanel.path}"?`;
-    const confirmed = await showConfirmModal(confirmMessage);
+    const confirmed = await showModal(confirmMessage);
     if (!confirmed) {
         return; // Abort if user cancels
     }
@@ -403,9 +399,6 @@ async function performCopy() {
     
     // Refresh dest panel
     await loadDir(destSide, destPanel.path);
-    
-    // Clear selection after operation? (Commander usually keeps it, Explorer clears it)
-    // Let's keep it for now.
 }
 
 // Delete Functionality
@@ -434,7 +427,7 @@ async function performDelete(permanent = false) {
     // Confirmation Dialog
     const actionName = permanent ? 'permanently DELETE' : 'move to TRASH';
     const confirmMessage = `Are you sure you want to ${actionName} ${filesToDelete.length} file(s)?`;
-    const confirmed = await showConfirmModal(confirmMessage);
+    const confirmed = await showModal(confirmMessage);
     if (!confirmed) {
         return;
     }
@@ -468,8 +461,35 @@ async function performDelete(permanent = false) {
     await loadDir(activeSide, panel.path);
 }
 
+// Mkdir Functionality
+async function performMkdir() {
+    const activeSide = state.active;
+    const panel = state[activeSide];
+
+    const newDirName = await showModal('Create new directory:', { input: true });
+    
+    if (!newDirName) return; // Cancelled or empty
+    
+    const newPath = await window.api.pathJoin(panel.path, newDirName);
+    const result = await window.api.createDirectory(newPath);
+    
+    if (result.success) {
+        await loadDir(activeSide, panel.path);
+        // Optional: Select or focus the new dir?
+        // Find the new dir in the list and focus it
+        const index = panel.files.findIndex(f => f.name === newDirName);
+        if (index !== -1) {
+            panel.focusedIndex = index;
+            renderList(activeSide);
+        }
+    } else {
+        alert(`Error creating directory: ${result.error}`);
+    }
+}
+
 // Button listener
 document.getElementById('copy-btn').addEventListener('click', performCopy);
+document.getElementById('mkdir-btn').addEventListener('click', performMkdir);
 document.getElementById('delete-btn').addEventListener('click', (e) => {
     // Check for shift key on the click event too!
     performDelete(e.shiftKey);
@@ -510,18 +530,28 @@ document.addEventListener('mouseup', () => {
 });
 
 // Modal Helper
-function showConfirmModal(message) {
+function showModal(message, options = { input: false, defaultValue: '' }) {
     return new Promise((resolve) => {
         const modal = document.getElementById('modal-overlay');
         const msg = document.getElementById('modal-message');
+        const inp = document.getElementById('modal-input');
         const btnOk = document.getElementById('modal-confirm');
         const btnCancel = document.getElementById('modal-cancel');
 
         msg.textContent = message;
+        
+        if (options.input) {
+            inp.value = options.defaultValue || '';
+            inp.classList.remove('hidden');
+        } else {
+            inp.classList.add('hidden');
+        }
+        
         modal.classList.remove('hidden');
 
         const cleanup = () => {
             modal.classList.add('hidden');
+            inp.classList.add('hidden');
             btnOk.removeEventListener('click', handleOk);
             btnCancel.removeEventListener('click', handleCancel);
             window.removeEventListener('keydown', handleKeydown, true);
@@ -532,8 +562,9 @@ function showConfirmModal(message) {
         };
 
         const handleOk = () => {
+            const value = options.input ? inp.value : true;
             cleanup();
-            resolve(true);
+            resolve(value);
         };
 
         const handleCancel = () => {
@@ -547,23 +578,26 @@ function showConfirmModal(message) {
              
              if (e.key === 'Tab') {
                  e.preventDefault();
-                 if (document.activeElement === btnOk) {
-                     btnCancel.focus();
-                 } else {
-                     btnOk.focus();
-                 }
+                 // Cycle focus
+                 const focusable = [];
+                 if (options.input) focusable.push(inp);
+                 focusable.push(btnOk, btnCancel);
+                 
+                 const currentIndex = focusable.indexOf(document.activeElement);
+                 const nextIndex = (currentIndex + 1) % focusable.length;
+                 focusable[nextIndex].focus();
                  return;
              }
-
-             e.preventDefault();
              
              if (e.key === 'Enter') {
+                 e.preventDefault();
                  if (document.activeElement === btnCancel) {
                      handleCancel();
                  } else {
                      handleOk();
                  }
              } else if (e.key === 'Escape') {
+                 e.preventDefault();
                  handleCancel();
              }
         };
@@ -574,6 +608,10 @@ function showConfirmModal(message) {
         // Capture phase to intercept global keys
         window.addEventListener('keydown', handleKeydown, true);
         
-        btnOk.focus();
+        if (options.input) {
+            inp.focus();
+        } else {
+            btnOk.focus();
+        }
     });
 }

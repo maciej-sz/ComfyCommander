@@ -92,6 +92,15 @@ ipcMain.handle('trash-file', async (event, targetPath) => {
     }
 });
 
+ipcMain.handle('create-directory', async (event, dirPath) => {
+    try {
+        await vfs.createDirectory(dirPath);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
 ipcMain.handle('path-join', (event, ...args) => {
     return path.join(...args);
 });

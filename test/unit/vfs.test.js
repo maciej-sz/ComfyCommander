@@ -83,6 +83,16 @@ describe('VFS Implementation Tests', () => {
              const files = await vfs.listDir(homeDir);
              expect(files).to.have.lengthOf(1);
         });
+
+        it('should create directory', async () => {
+            const newDir = path.join(homeDir, 'newFolder');
+            await vfs.createDirectory(newDir);
+            
+            const files = await vfs.listDir(homeDir);
+            const folder = files.find(f => f.name === 'newFolder');
+            expect(folder).to.exist;
+            expect(folder.isDirectory).to.be.true;
+        });
     });
 
     describe('NodeFileSystem', () => {
@@ -145,6 +155,14 @@ describe('VFS Implementation Tests', () => {
             await vfs.trashFile(file);
             expect(trashCalled).to.be.true;
             expect(trashPath).to.equal(file);
+        });
+
+        it('should create directory', async () => {
+            const newDir = path.join(tmpDir, 'newFolder');
+            await vfs.createDirectory(newDir);
+            
+            const stats = await fs.promises.stat(newDir);
+            expect(stats.isDirectory()).to.be.true;
         });
     });
 });

@@ -170,6 +170,14 @@ button {
     font-size: 16px;
 }
 
+#modal-input {
+    width: 80%;
+    padding: 5px;
+    margin-bottom: 20px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+}
+
 .modal-buttons {
     display: flex;
     justify-content: space-around;
