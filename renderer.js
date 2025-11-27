@@ -2,7 +2,8 @@ const state = {
     left: {
         path: '',
         files: [],
-        selectedIndex: 0,
+        focusedIndex: 0, // The cursor
+        selectedIndices: new Set(), // The "tagged" files
         element: document.getElementById('left-panel'),
         listElement: document.getElementById('left-list'),
         pathElement: document.getElementById('left-path')
@@ -10,7 +11,8 @@ const state = {
     right: {
         path: '',
         files: [],
-        selectedIndex: 0,
+        focusedIndex: 0,
+        selectedIndices: new Set(),
         element: document.getElementById('right-panel'),
         listElement: document.getElementById('right-list'),
         pathElement: document.getElementById('right-path')
@@ -36,15 +38,13 @@ async function loadDir(side, dirPath) {
     const result = await window.api.listDir(dirPath);
     if (result.success) {
         state[side].path = dirPath;
-        // Add '..' if not root (simplification: assume length > 1 for root check or just always add and let backend handle parent of root)
-        // Actually backend returning parent of / is / usually.
-        
         const files = result.files;
         // Add parent directory entry manually for navigation
         files.unshift({ name: '..', isDirectory: true, path: await window.api.getParentDir(dirPath) });
         
         state[side].files = files;
-        state[side].selectedIndex = 0;
+        state[side].focusedIndex = 0;
+        state[side].selectedIndices = new Set(); // Clear selections on dir change
         state[side].pathElement.textContent = dirPath;
         renderList(side);
     } else {
@@ -66,16 +66,49 @@ function renderList(side) {
             div.textContent = file.name;
         }
         
-        if (index === panel.selectedIndex) {
+        // Apply focus style (cursor)
+        if (index === panel.focusedIndex) {
+            div.classList.add('focused');
+        }
+
+        // Apply selection style (tagged)
+        if (panel.selectedIndices.has(index)) {
             div.classList.add('selected');
-            // Scroll into view if needed
-            // div.scrollIntoView({ block: 'nearest' }); 
-            // (This might be annoying on initial load, let's do it only on move)
         }
         
-        div.onclick = () => {
+        div.onclick = (e) => {
             setActivePanel(side);
-            panel.selectedIndex = index;
+            
+            if (e.ctrlKey) {
+                // Toggle selection
+                if (panel.selectedIndices.has(index)) {
+                    panel.selectedIndices.delete(index);
+                } else {
+                    panel.selectedIndices.add(index);
+                }
+            } else {
+                // Standard behavior: clear other selections?
+                // For commander style, often mouse click just moves cursor. 
+                // But in web, click usually selects. 
+                // Let's make simple click just move cursor for now to be consistent with 'Insert' key workflow, 
+                // OR, if we want to be modern: clear selection and select this one.
+                // Let's go with: Click moves cursor. Use Ctrl/Insert to select.
+                // Actually, user asked for "Select multiple files". 
+                // If I click 'A', then Ctrl+Click 'B', I want 'A' and 'B'.
+                // If I click 'C' (no ctrl), I usually expect 'A' and 'B' to be deselected.
+                // Let's implement standard OS behavior:
+                // Click -> Clear selection, Set cursor, (Optionally add cursor to selection? No, usually cursor is implicit selection if selection is empty)
+                
+                // DECISION: 
+                // 1. Click: Set Focus. CLEAR Selection.
+                // 2. Ctrl+Click: Set Focus. Toggle Selection for this index. 
+                
+                if (!e.ctrlKey) {
+                    panel.selectedIndices.clear();
+                }
+            }
+            
+            panel.focusedIndex = index;
             renderList(side);
         };
         
@@ -112,41 +145,55 @@ document.addEventListener('keydown', async (e) => {
         setActivePanel(activeSide === 'left' ? 'right' : 'left');
     } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (panel.selectedIndex < panel.files.length - 1) {
-            panel.selectedIndex++;
+        if (panel.focusedIndex < panel.files.length - 1) {
+            panel.focusedIndex++;
             renderList(activeSide);
             ensureVisible(activeSide);
         }
     } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (panel.selectedIndex > 0) {
-            panel.selectedIndex--;
+        if (panel.focusedIndex > 0) {
+            panel.focusedIndex--;
             renderList(activeSide);
             ensureVisible(activeSide);
         }
+    } else if (e.key === 'Insert') {
+        e.preventDefault();
+        // Toggle selection of current
+        if (panel.selectedIndices.has(panel.focusedIndex)) {
+            panel.selectedIndices.delete(panel.focusedIndex);
+        } else {
+            panel.selectedIndices.add(panel.focusedIndex);
+        }
+        // Move down
+        if (panel.focusedIndex < panel.files.length - 1) {
+            panel.focusedIndex++;
+        }
+        renderList(activeSide);
+        ensureVisible(activeSide);
     } else if (e.key === 'Home') {
         e.preventDefault();
-        panel.selectedIndex = 0;
+        panel.focusedIndex = 0;
         renderList(activeSide);
         ensureVisible(activeSide);
     } else if (e.key === 'End') {
         e.preventDefault();
-        panel.selectedIndex = Math.max(0, panel.files.length - 1);
+        panel.focusedIndex = Math.max(0, panel.files.length - 1);
         renderList(activeSide);
         ensureVisible(activeSide);
     } else if (e.key === 'PageUp') {
         e.preventDefault();
-        panel.selectedIndex = Math.max(0, panel.selectedIndex - PAGE_SIZE);
+        panel.focusedIndex = Math.max(0, panel.focusedIndex - PAGE_SIZE);
         renderList(activeSide);
         ensureVisible(activeSide);
     } else if (e.key === 'PageDown') {
         e.preventDefault();
-        panel.selectedIndex = Math.min(panel.files.length - 1, panel.selectedIndex + PAGE_SIZE);
+        panel.focusedIndex = Math.min(panel.files.length - 1, panel.focusedIndex + PAGE_SIZE);
         renderList(activeSide);
         ensureVisible(activeSide);
     } else if (e.key === 'Enter') {
         e.preventDefault();
-        const file = panel.files[panel.selectedIndex];
+        const file = panel.files[panel.focusedIndex];
         if (file && file.isDirectory) {
             await loadDir(activeSide, file.path);
         }
@@ -158,7 +205,7 @@ document.addEventListener('keydown', async (e) => {
 
 function ensureVisible(side) {
     const panel = state[side];
-    const el = panel.listElement.children[panel.selectedIndex];
+    const el = panel.listElement.children[panel.focusedIndex];
     if (el) {
         el.scrollIntoView({ block: 'nearest' });
     }
@@ -172,25 +219,48 @@ async function performCopy() {
     const sourcePanel = state[sourceSide];
     const destPanel = state[destSide];
     
-    const file = sourcePanel.files[sourcePanel.selectedIndex];
+    // Determine which files to copy
+    let filesToCopy = [];
     
-    if (!file) return;
-    if (file.name === '..') return; // Can't copy parent link
-    
-    // Simple confirmation
-    const status = document.getElementById('status-bar');
-    status.textContent = `Copying ${file.name}...`;
-    
-    const result = await window.api.copyFile(file.path, destPanel.path);
-    
-    if (result.success) {
-        status.textContent = `Copied ${file.name} successfully.`;
-        // Refresh dest panel
-        await loadDir(destSide, destPanel.path);
+    if (sourcePanel.selectedIndices.size > 0) {
+        // Copy selected files
+        for (const index of sourcePanel.selectedIndices) {
+            filesToCopy.push(sourcePanel.files[index]);
+        }
     } else {
-        status.textContent = `Error copying: ${result.error}`;
-        alert(`Error: ${result.error}`);
+        // Copy focused file if nothing selected
+        filesToCopy.push(sourcePanel.files[sourcePanel.focusedIndex]);
     }
+    
+    // Filter out invalid files (like '..')
+    filesToCopy = filesToCopy.filter(f => f && f.name !== '..');
+    
+    if (filesToCopy.length === 0) return;
+    
+    const status = document.getElementById('status-bar');
+    status.textContent = `Copying ${filesToCopy.length} files...`;
+    
+    let errors = [];
+    
+    for (const file of filesToCopy) {
+        const result = await window.api.copyFile(file.path, destPanel.path);
+        if (!result.success) {
+            errors.push(`${file.name}: ${result.error}`);
+        }
+    }
+    
+    if (errors.length === 0) {
+        status.textContent = `Copied ${filesToCopy.length} files successfully.`;
+    } else {
+        status.textContent = `Finished with errors.`;
+        alert(`Errors:\n${errors.join('\n')}`);
+    }
+    
+    // Refresh dest panel
+    await loadDir(destSide, destPanel.path);
+    
+    // Clear selection after operation? (Commander usually keeps it, Explorer clears it)
+    // Let's keep it for now.
 }
 
 // Button listener
