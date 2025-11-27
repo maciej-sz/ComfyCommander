@@ -213,6 +213,13 @@ document.addEventListener('keydown', async (e) => {
     } else if (e.key === 'F5') {
         e.preventDefault();
         performCopy();
+    } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        const currentPath = panel.path;
+        const parentPath = await window.api.getParentDir(currentPath);
+        if (currentPath !== parentPath) { // Prevent going up from root
+            await loadDir(activeSide, parentPath);
+        }
     }
 });
 
