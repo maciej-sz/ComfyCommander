@@ -237,6 +237,18 @@ document.addEventListener('keydown', async (e) => {
             renderList(activeSide);
             ensureVisible(activeSide);
         }
+    } else if (e.key === 'ArrowRight' && e.ctrlKey && activeSide === 'left') {
+        e.preventDefault();
+        const file = panel.files[panel.focusedIndex];
+        if (file && file.isDirectory) {
+            await loadDir('right', file.path);
+        }
+    } else if (e.key === 'ArrowLeft' && e.ctrlKey && activeSide === 'right') {
+        e.preventDefault();
+        const file = panel.files[panel.focusedIndex];
+        if (file && file.isDirectory) {
+            await loadDir('left', file.path);
+        }
     } else if (e.key === 'Insert') {
         e.preventDefault();
         // Toggle selection of current
