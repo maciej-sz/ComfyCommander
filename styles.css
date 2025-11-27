@@ -1,0 +1,93 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #001f3f; /* Navy Blue */
+    color: white;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.panel {
+    flex: 1;
+    border: 1px solid #0074D9;
+    display: flex;
+    flex-direction: column;
+    background-color: #001f3f;
+    outline: none; /* Remove default focus outline */
+}
+
+.active-panel {
+    background-color: #002855; /* Slightly lighter blue for active */
+    border-color: #7FDBFF;
+}
+
+.path-bar {
+    background-color: #0074D9;
+    color: white;
+    padding: 5px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.file-list {
+    flex: 1;
+    overflow-y: auto;
+    font-family: monospace; /* Classic feel */
+}
+
+.file-item {
+    padding: 2px 5px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+
+.file-item:hover {
+    background-color: #004080;
+}
+
+.file-item.selected {
+    background-color: #FF4136; /* Red for selection like some commanders, or just highlighted */
+    color: white;
+}
+
+.active-panel .file-item.focused {
+    border: 1px dotted white; /* Classic focus indicator */
+}
+
+.is-directory {
+    font-weight: bold;
+    color: #FFDC00; /* Yellow for folders */
+}
+
+#footer {
+    height: 40px;
+    background-color: #DDDDDD;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    color: black;
+}
+
+button {
+    padding: 5px 15px;
+    margin-right: 10px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#status-bar {
+    margin-left: auto;
+    font-size: 12px;
+}

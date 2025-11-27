@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS Commander</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <div id="left-panel" class="panel active-panel" tabindex="0">
+            <div class="path-bar" id="left-path"></div>
+            <div class="file-list" id="left-list"></div>
+        </div>
+        <div id="right-panel" class="panel" tabindex="0">
+            <div class="path-bar" id="right-path"></div>
+            <div class="file-list" id="right-list"></div>
+        </div>
+    </div>
+    <div id="footer">
+        <button id="copy-btn">F5 Copy</button>
+        <div id="status-bar">Ready</div>
+    </div>
+    <script src="renderer.js"></script>
+</body>
+</html>
