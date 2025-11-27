@@ -297,6 +297,9 @@ document.addEventListener('keydown', async (e) => {
     } else if (e.key === 'F5') {
         e.preventDefault();
         performCopy();
+    } else if (e.key === 'F8' || e.key === 'Delete') {
+        e.preventDefault();
+        performDelete(e.shiftKey);
     } else if (e.key === 'Backspace') {
         e.preventDefault();
         if (panel.searchString.length > 0) {
@@ -405,8 +408,72 @@ async function performCopy() {
     // Let's keep it for now.
 }
 
+// Delete Functionality
+async function performDelete(permanent = false) {
+    const activeSide = state.active;
+    const panel = state[activeSide];
+    
+    // Determine which files to delete
+    let filesToDelete = [];
+    
+    if (panel.selectedIndices.size > 0) {
+        // Delete selected files
+        for (const index of panel.selectedIndices) {
+            filesToDelete.push(panel.files[index]);
+        }
+    } else {
+        // Delete focused file if nothing selected
+        filesToDelete.push(panel.files[panel.focusedIndex]);
+    }
+    
+    // Filter out invalid files (like '..')
+    filesToDelete = filesToDelete.filter(f => f && f.name !== '..');
+    
+    if (filesToDelete.length === 0) return;
+
+    // Confirmation Dialog
+    const actionName = permanent ? 'permanently DELETE' : 'move to TRASH';
+    const confirmMessage = `Are you sure you want to ${actionName} ${filesToDelete.length} file(s)?`;
+    const confirmed = await showConfirmModal(confirmMessage);
+    if (!confirmed) {
+        return;
+    }
+    
+    const status = document.getElementById('status-bar');
+    if (status) status.textContent = `Deleting ${filesToDelete.length} files...`;
+    
+    let errors = [];
+    
+    for (const file of filesToDelete) {
+        let result;
+        if (permanent) {
+             result = await window.api.deleteFile(file.path);
+        } else {
+             result = await window.api.trashFile(file.path);
+        }
+        
+        if (!result.success) {
+            errors.push(`${file.name}: ${result.error}`);
+        }
+    }
+    
+    if (errors.length === 0) {
+        if (status) status.textContent = `Deleted ${filesToDelete.length} files successfully.`;
+    } else {
+        if (status) status.textContent = `Finished with errors.`;
+        alert(`Errors:\n${errors.join('\n')}`);
+    }
+    
+    // Refresh panel
+    await loadDir(activeSide, panel.path);
+}
+
 // Button listener
 document.getElementById('copy-btn').addEventListener('click', performCopy);
+document.getElementById('delete-btn').addEventListener('click', (e) => {
+    // Check for shift key on the click event too!
+    performDelete(e.shiftKey);
+});
 
 // Resizing Logic
 const separator = document.getElementById('separator');

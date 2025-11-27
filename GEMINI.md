@@ -41,6 +41,7 @@ The project follows a standard Electron architecture with strict context isolati
 *   **Requirement:** Any new feature or modification to an existing feature **must** be accompanied by a test.
     *   **UI Tests:** Required for any change that affects the user interface. Located in `test/ui/`. Use Playwright to simulate user interactions (clicks, keyboard navigation) within the Electron window.
     *   **Unit Tests:** Required for logic-only changes that do not touch the UI. Located in `test/unit/`. Focus on logic like VFS implementations.
+*   **Permanence:** All tests created, whether unit or UI, are considered permanent artifacts of the project and **must not be deleted** after their initial implementation and verification, unless explicitly requested by the user for refactoring or removal of features.
 
 ## Key Files
 *   `main.js`: Entry point. Sets up VFS and IPC handlers.

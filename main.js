@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const NodeFileSystem = require('./lib/vfs/NodeFileSystem');
 const MemoryFileSystem = require('./lib/vfs/MemoryFileSystem');
@@ -16,7 +16,7 @@ if (process.env.USE_MEMORY_FS === 'true') {
     vfs = new MemoryFileSystem(initialFiles);
     console.log('Using MemoryFileSystem');
 } else {
-    vfs = new NodeFileSystem();
+    vfs = new NodeFileSystem(shell.trashItem);
 }
 
 function createWindow() {
@@ -68,6 +68,24 @@ ipcMain.handle('list-dir', async (event, dirPath) => {
 ipcMain.handle('copy-file', async (event, sourcePath, destDir) => {
     try {
         await vfs.copyFile(sourcePath, destDir);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('delete-file', async (event, targetPath) => {
+    try {
+        await vfs.deleteFile(targetPath);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('trash-file', async (event, targetPath) => {
+    try {
+        await vfs.trashFile(targetPath);
         return { success: true };
     } catch (error) {
         return { success: false, error: error.message };

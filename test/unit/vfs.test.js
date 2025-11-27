@@ -66,15 +66,39 @@ describe('VFS Implementation Tests', () => {
                 expect(e.message).to.include('ENOENT');
             }
         });
+
+        it('should delete file', async () => {
+            const file = path.join(homeDir, 'file1.txt');
+            await vfs.deleteFile(file);
+            
+            const files = await vfs.listDir(homeDir);
+            expect(files).to.have.lengthOf(1);
+            expect(files[0].name).to.equal('folder1');
+        });
+
+        it('should trash file (same as delete in memory)', async () => {
+             const file = path.join(homeDir, 'file1.txt');
+             await vfs.trashFile(file);
+             
+             const files = await vfs.listDir(homeDir);
+             expect(files).to.have.lengthOf(1);
+        });
     });
 
     describe('NodeFileSystem', () => {
         let vfs;
         let tmpDir;
+        let trashCalled = false;
+        let trashPath = '';
 
         beforeEach(async () => {
             tmpDir = await createTempDir();
-            vfs = new NodeFileSystem();
+            trashCalled = false;
+            const mockTrash = async (p) => { 
+                trashCalled = true; 
+                trashPath = p; 
+            };
+            vfs = new NodeFileSystem(mockTrash);
             
             // Setup initial state in temp dir
             await fs.promises.writeFile(path.join(tmpDir, 'file1.txt'), 'content');
@@ -103,6 +127,24 @@ describe('VFS Implementation Tests', () => {
             const files = await vfs.listDir(destDir);
             expect(files).to.have.lengthOf(1);
             expect(files[0].name).to.equal('file1.txt');
+        });
+
+        it('should delete file permanently', async () => {
+            const file = path.join(tmpDir, 'file1.txt');
+            await vfs.deleteFile(file);
+            try {
+                await fs.promises.stat(file);
+                throw new Error('File should be gone');
+            } catch (e) {
+                expect(e.code).to.equal('ENOENT');
+            }
+        });
+
+        it('should trash file (call handler)', async () => {
+            const file = path.join(tmpDir, 'file1.txt');
+            await vfs.trashFile(file);
+            expect(trashCalled).to.be.true;
+            expect(trashPath).to.equal(file);
         });
     });
 });
